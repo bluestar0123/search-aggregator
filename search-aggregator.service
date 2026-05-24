@@ -1,0 +1,19 @@
+[Unit]
+Description=Search Aggregator Service
+After=network.target
+
+[Service]
+Type=simple
+User=bluestar
+WorkingDirectory=/opt/bluestar/code/search
+ExecStart=/opt/bluestar/code/search/.venv/bin/python main.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# 环境变量
+Environment="PYTHONUNBUFFERED=1"
+
+[Install]
+WantedBy=multi-user.target

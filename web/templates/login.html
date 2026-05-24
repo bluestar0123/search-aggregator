@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Search Aggregator - 登录</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0f1117;--bg2:#161822;--bg3:#1e2030;--bg4:#282a3a;
+  --text:#e0e0e0;--text2:#a0a0b0;--text3:#606070;
+  --accent:#7c3aed;--accent2:#a855f7;
+  --green:#22c55e;--red:#ef4444;--yellow:#eab308;--blue:#3b82f6;
+  --border:#2a2d3e;--radius:8px;
+}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text)}
+
+.login-wrap{
+  min-height:100vh;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--bg) 0%,var(--bg2) 50%,var(--bg3) 100%);
+}
+
+.login-card{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:48px 40px;
+  width:100%;max-width:400px;
+  box-shadow:0 20px 60px rgba(0,0,0,.4);
+}
+
+.login-card h1{
+  text-align:center;
+  font-size:24px;font-weight:700;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  margin-bottom:8px;
+}
+
+.login-card .subtitle{
+  text-align:center;font-size:14px;color:var(--text3);margin-bottom:32px;
+}
+
+.form-group{
+  display:flex;flex-direction:column;gap:6px;margin-bottom:20px;
+}
+
+.form-group label{
+  font-size:13px;color:var(--text2);font-weight:500;
+}
+
+.form-group input{
+  width:100%;
+  background:var(--bg);
+  border:1px solid var(--border);
+  color:var(--text);
+  border-radius:var(--radius);
+  padding:12px 14px;
+  font-size:15px;
+  outline:none;
+  transition:border .2s;
+}
+
+.form-group input:focus{
+  border-color:var(--accent);
+}
+
+.form-group input::placeholder{
+  color:var(--text3);
+}
+
+.login-btn{
+  width:100%;
+  padding:14px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#fff;
+  border:none;
+  border-radius:var(--radius);
+  font-size:16px;font-weight:600;
+  cursor:pointer;
+  transition:opacity .2s,transform .1s;
+  margin-top:4px;
+}
+
+.login-btn:hover{opacity:.9}
+.login-btn:active{transform:scale(.98)}
+.login-btn:disabled{opacity:.5;cursor:not-allowed}
+
+.error-msg{
+  color:var(--red);
+  font-size:13px;
+  text-align:center;
+  margin-top:12px;
+  min-height:20px;
+}
+
+.logo{
+  text-align:center;
+  font-size:48px;
+  margin-bottom:16px;
+}
+</style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="logo">🔍</div>
+    <h1>Search Aggregator</h1>
+    <p class="subtitle">用户登录</p>
+
+    <form id="loginForm" onsubmit="return handleLogin(event)">
+      <div class="form-group">
+        <label>用户名</label>
+        <input type="text" id="username" placeholder="请输入用户名" autocomplete="username" required />
+      </div>
+      <div class="form-group">
+        <label>密码</label>
+        <input type="password" id="password" placeholder="请输入密码" autocomplete="current-password" required />
+      </div>
+      <button type="submit" class="login-btn" id="loginBtn">登 录</button>
+    </form>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+</div>
+
+<script>
+async function handleLogin(e) {
+  e.preventDefault();
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  const errorMsg = document.getElementById('errorMsg');
+  const loginBtn = document.getElementById('loginBtn');
+
+  errorMsg.textContent = '';
+  loginBtn.disabled = true;
+  loginBtn.textContent = '登录中...';
+
+  try {
+    const params = new URLSearchParams({ username, password });
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params,
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.token) {
+      // 保存 token 到 localStorage 以备 API 调用
+      localStorage.setItem('admin_token', data.token);
+      window.location.href = '/';
+    } else {
+      errorMsg.textContent = data.detail || '用户名或密码错误';
+      loginBtn.disabled = false;
+      loginBtn.textContent = '登 录';
+    }
+  } catch (err) {
+    errorMsg.textContent = '网络错误，请重试';
+    loginBtn.disabled = false;
+    loginBtn.textContent = '登 录';
+  }
+}
+
+// Enter key support
+document.getElementById('password').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') handleLogin(e);
+});
+</script>
+</body>
+</html>

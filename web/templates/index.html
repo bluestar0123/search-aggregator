@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Search Aggregator - 管理界面</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0f1117;--bg2:#161822;--bg3:#1e2030;--bg4:#282a3a;
+  --text:#e0e0e0;--text2:#a0a0b0;--text3:#606070;
+  --accent:#7c3aed;--accent2:#a855f7;
+  --green:#22c55e;--red:#ef4444;--yellow:#eab308;--blue:#3b82f6;
+  --border:#2a2d3e;--radius:8px;
+}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text)}
+a{color:var(--accent2);text-decoration:none}
+button{cursor:pointer;border:none;border-radius:var(--radius);padding:8px 16px;font-size:14px;transition:all .15s}
+input,select,textarea{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:8px 12px;font-size:14px;outline:none;transition:border .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+
+/* ---- Layout ---- */
+#app{display:flex;flex-direction:column;height:100vh}
+header{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:16px;flex-shrink:0}
+header h1{font-size:20px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap}
+.search-box{flex:1;max-width:500px;display:flex;gap:4px}
+.header-actions{display:flex;gap:8px;margin-left:auto}
+.btn{background:var(--accent);color:#fff;font-weight:600}
+.btn:hover{background:var(--accent2)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent2)}
+.btn-danger{background:var(--red);color:#fff}
+.btn-danger:hover{background:#dc2626}
+.btn-success{background:var(--green);color:#fff}
+
+.main{display:flex;flex:1;overflow:hidden}
+
+/* ---- Sidebar ---- */
+.sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+.nav-section{padding:12px;border-bottom:1px solid var(--border)}
+.nav-item{padding:10px 14px;border-radius:var(--radius);cursor:pointer;font-size:14px;color:var(--text2);display:flex;align-items:center;gap:10px;transition:all .15s;margin-bottom:2px}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:var(--accent);color:#fff;font-weight:600}
+.nav-item .nav-icon{font-size:16px;width:20px;text-align:center}
+.sidebar-divider{height:1px;background:var(--border);margin:4px 12px}
+.sidebar-header{padding:12px 16px;font-weight:600;font-size:13px;color:var(--text3);display:flex;justify-content:space-between;align-items:center}
+.channel-list{flex:1;overflow-y:auto;padding:0 8px 8px}
+.channel-item{padding:10px 12px;border-radius:var(--radius);cursor:pointer;margin-bottom:4px;transition:background .15s}
+.channel-item:hover,.channel-item.active{background:var(--bg3)}
+.channel-item .ch-name{font-weight:600;font-size:13px;display:flex;align-items:center;gap:8px}
+.channel-item .ch-meta{font-size:11px;color:var(--text2);margin-top:4px;display:flex;gap:6px;align-items:center}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.dot.green{background:var(--green)}
+.dot.red{background:var(--red)}
+.dot.yellow{background:var(--yellow)}
+.tag{font-size:10px;padding:2px 6px;border-radius:4px;background:var(--bg4);color:var(--text2)}
+.tag.enabled{background:rgba(34,197,94,.15);color:var(--green)}
+.tag.disabled{background:rgba(239,68,68,.15);color:var(--red)}
+
+/* ---- Content ---- */
+.content{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.content-header{padding:16px 20px 0;font-size:18px;font-weight:700;color:var(--text2);flex-shrink:0}
+.tab-panel{flex:1;overflow-y:auto;padding:16px 20px}
+.channel-sub-tabs{display:flex;gap:4px;padding:12px 20px 0;flex-shrink:0}
+.channel-sub-tab{padding:8px 16px;border-radius:var(--radius) var(--radius) 0 0;cursor:pointer;font-size:13px;color:var(--text3);border-bottom:2px solid transparent;transition:all .15s}
+.channel-sub-tab:hover{color:var(--text2)}
+.channel-sub-tab.active{color:var(--accent2);border-bottom-color:var(--accent);background:var(--bg3)}
+
+/* ---- Cards ---- */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.card h3{font-size:15px;margin-bottom:12px;color:var(--text2)}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+.stat-card{background:var(--bg3);border-radius:var(--radius);padding:14px;text-align:center}
+.stat-card .value{font-size:28px;font-weight:700;color:var(--accent2)}
+.stat-card .label{font-size:12px;color:var(--text2);margin-top:4px}
+
+/* ---- Table ---- */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:10px 12px;font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+td{padding:10px 12px;font-size:13px;border-bottom:1px solid var(--border)}
+tr:hover td{background:var(--bg3)}
+
+/* ---- Search Results ---- */
+.result-item{padding:14px;border-bottom:1px solid var(--border)}
+.result-item:last-child{border-bottom:none}
+.result-title{font-size:15px;font-weight:600;color:var(--accent2);margin-bottom:4px}
+.result-url{font-size:12px;color:var(--text3);margin-bottom:6px;word-break:break-all}
+.result-snippet{font-size:13px;color:var(--text2);line-height:1.5}
+.result-meta{margin-top:6px;display:flex;gap:8px;align-items:center}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty-state .icon{font-size:48px;margin-bottom:12px}
+
+/* ---- Forms ---- */
+.form-row{display:flex;gap:12px;margin-bottom:12px;align-items:end;flex-wrap:wrap}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:12px;color:var(--text2)}
+.form-group input,.form-group select{width:200px}
+
+/* ---- Chart ---- */
+.bar-chart{display:flex;align-items:end;gap:4px;height:120px;padding:8px 0}
+.bar{background:var(--accent);border-radius:3px 3px 0 0;min-width:20px;flex:1;transition:height .3s}
+.bar:hover{background:var(--accent2)}
+.bar-label{font-size:10px;color:var(--text3);text-align:center;margin-top:4px}
+
+/* ---- Toast ---- */
+.toast{position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:var(--radius);font-size:14px;z-index:9999;animation:slideIn .3s}
+.toast.success{background:var(--green);color:#fff}
+.toast.error{background:var(--red);color:#fff}
+@keyframes slideIn{from{transform:translateX(100px);opacity:0}to{transform:none;opacity:1}}
+
+/* ---- Loading ---- */
+.loading{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---- Responsive ---- */
+@media(max-width:768px){
+  .sidebar{width:60px}
+  .nav-item span:not(.nav-icon){display:none}
+  .sidebar-header{display:none}
+  .channel-list{display:none}
+  .sidebar-divider{display:none}
+  header{flex-wrap:wrap}
+  .search-box{max-width:100%;flex-basis:100%}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Header -->
+  <header>
+    <h1>🔍 Search Aggregator</h1>
+    <div class="header-actions">
+      <button class="btn-ghost btn-sm" onclick="reloadConfig()">🔄 重载</button>
+      <button class="btn-ghost btn-sm" onclick="refreshAll()">📋 刷新</button>
+      <button class="btn-ghost btn-sm" onclick="doLogout()">🚪 退出</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <!-- 导航菜单 -->
+      <div class="nav-section">
+        <div class="nav-item active" data-nav="channels" data-role="admin" onclick="switchNav('channels')">
+          <span class="nav-icon">📡</span><span>渠道管理</span>
+        </div>
+        <div class="nav-item" data-nav="users" data-role="admin" onclick="switchNav('users')">
+          <span class="nav-icon">👥</span><span>用户管理</span>
+        </div>
+        <div class="nav-item" data-nav="channel-monitor" data-role="admin" onclick="switchNav('channel-monitor')">
+          <span class="nav-icon">📊</span><span>渠道监控</span>
+        </div>
+        <div class="nav-item" data-nav="user-monitor" data-role="admin" onclick="switchNav('user-monitor')">
+          <span class="nav-icon">📈</span><span>用户监控</span>
+        </div>
+        <div class="nav-item" data-nav="logs" onclick="switchNav('logs')">
+          <span class="nav-icon">📋</span><span>调用日志</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+      <!-- 渠道管理 -->
+      <div class="tab-panel" id="panel-channels">
+        <div id="channelContent">
+          <div class="empty-state"><div class="icon">📡</div><div>加载中...</div></div>
+        </div>
+      </div>
+
+      <!-- 用户管理 -->
+      <div class="tab-panel" id="panel-users" style="display:none">
+        <div id="usersContent">
+          <div class="empty-state"><div class="icon">👥</div><div>加载中...</div></div>
+        </div>
+      </div>
+
+      <!-- 渠道监控 -->
+      <div class="tab-panel" id="panel-channel-monitor" style="display:none">
+        <div id="channelMonitorContent">
+          <div class="empty-state"><div class="icon">📊</div><div>加载中...</div></div>
+        </div>
+      </div>
+
+      <!-- 用户监控 -->
+      <div class="tab-panel" id="panel-user-monitor" style="display:none">
+        <div id="userMonitorContent">
+          <div class="empty-state"><div class="icon">👥</div><div>加载中...</div></div>
+        </div>
+      </div>
+
+      <!-- 调用日志 -->
+      <div class="tab-panel" id="panel-logs" style="display:none">
+        <div id="logsContent">
+          <div class="empty-state"><div class="icon">📋</div><div>加载中...</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// State
+// ============================================================
+let channels = [];
+let selectedChannel = null;
+let activeNav = 'channels';
+let _currentKeyId = null;
+let _currentUser = null; // {username, role}
+
+const $ = id => document.getElementById(id);
+const api = async (url, opts = {}) => {
+  try {
+    const res = await fetch(url, {
+      headers: {'Content-Type': 'application/json'},
+      ...opts,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({detail: res.statusText}));
+      throw new Error(err.detail || 'Request failed');
+    }
+    return await res.json();
+  } catch (e) {
+    toast(e.message, 'error');
+    throw e;
+  }
+};
+
+// ============================================================
+// Toast
+// ============================================================
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ============================================================
+// Navigation
+// ============================================================
+function switchNav(name) {
+  activeNav = name;
+  // 更新导航高亮
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.nav === name));
+  // 切换面板
+  const panels = ['channels','users','channel-monitor','user-monitor','logs'];
+  panels.forEach(id => {
+    const el = $(id === 'channels' ? 'panel-channels' : 'panel-' + id);
+    if (el) el.style.display = id === name ? '' : 'none';
+  });
+  // 加载数据
+  if (name === 'channels') loadChannels();
+  if (name === 'users') loadUsers();
+  if (name === 'channel-monitor') loadChannelMonitor();
+  if (name === 'user-monitor') loadUserMonitor();
+  if (name === 'logs') loadLogs();
+}
+
+// ============================================================
+// Channel List
+// ============================================================
+async function loadChannels() {
+  try {
+    const data = await api('/api/channels');
+    channels = data.channels || [];
+    renderChannelList();
+  } catch (e) {
+    $('channelContent').innerHTML = '<div class="empty-state"><div class="icon">❌</div><div>加载失败</div></div>';
+  }
+}
+
+function renderChannelList() {
+  let html = `
+    <div class="card">
+      <h3>📡 渠道列表
+        <button class="btn btn-success btn-sm" style="float:right" onclick="showCreateChannelDialog()">➕ 添加渠道</button>
+      </h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>名称</th><th>显示名</th><th>状态</th><th>优先级</th><th>Keys</th><th>操作</th>
+          </tr></thead>
+          <tbody>`;
+
+  if (!channels.length) {
+    html += '<tr><td colspan="6" style="text-align:center;color:var(--text3)">暂无渠道</td></tr>';
+  } else {
+    channels.forEach(ch => {
+      html += `<tr>
+        <td><strong>${ch.name}</strong></td>
+        <td>${ch.display_name || '-'}</td>
+        <td><span class="tag ${ch.enabled ? 'enabled' : 'disabled'}">${ch.enabled ? '启用' : '禁用'}</span>
+            <span class="dot ${ch.healthy ? (ch.enabled ? 'green' : 'yellow') : 'red'}" style="margin-left:6px"></span></td>
+        <td>P${ch.priority}</td>
+        <td>${ch.keys_count}</td>
+        <td>
+          <button class="btn btn-sm" onclick="selectChannel('${ch.name}')">✏️ 编辑</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteChannel('${ch.name}')">🗑️ 删除</button>
+        </td>
+      </tr>`;
+    });
+  }
+
+  html += `</tbody></table></div></div>`;
+  html += `<div id="channelEditArea"></div>`;
+  $('channelContent').innerHTML = html;
+}
+
+// ============================================================
+// Create Channel Dialog
+// ============================================================
+function showCreateChannelDialog() {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:10000';
+  overlay.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:500px;width:90%">
+      <h3 style="margin-bottom:16px">➕ 添加渠道</h3>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>渠道标识 (name)</label>
+        <input type="text" id="newChannelName" placeholder="如: exa, tavily" style="width:100%" />
+      </div>
+      <div class="form-group" style="margin-bottom:16px">
+        <label>显示名称 (display_name)</label>
+        <input type="text" id="newChannelDisplayName" placeholder="如: Exa Search" style="width:100%" />
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-ghost btn-sm" onclick="this.closest('div[style*=fixed]').remove()">取消</button>
+        <button class="btn btn-success btn-sm" onclick="createChannel()">创建</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+async function createChannel() {
+  const name = $('newChannelName').value.trim();
+  const display_name = $('newChannelDisplayName').value.trim();
+  if (!name) { toast('请输入渠道名称', 'error'); return; }
+  try {
+    await api('/api/channels', {
+      method: 'POST',
+      body: JSON.stringify({ name, display_name })
+    });
+    document.querySelector('div[style*=fixed]')?.remove();
+    toast('渠道已创建');
+    loadChannels();
+  } catch (e) {}
+}
+
+async function deleteChannel(name) {
+  if (!confirm(`确定删除渠道 ${name}？此操作不可恢复。`)) return;
+  try {
+    await api('/api/channels/' + name, { method: 'DELETE' });
+    toast('渠道已删除');
+    if (selectedChannel === name) selectedChannel = null;
+    loadChannels();
+  } catch (e) {}
+}
+
+// ============================================================
+// Select Channel & Edit Form
+// ============================================================
+async function selectChannel(name) {
+  selectedChannel = name;
+  const area = $('channelEditArea');
+  area.innerHTML = '<div class="card"><div class="empty-state"><div class="loading"></div></div></div>';
+
+  try {
+    const ch = await api('/api/channels/' + name);
+    const keysData = await api('/api/channels/' + name + '/keys').catch(() => ({keys: []}));
+    const keysList = keysData.keys || [];
+
+    let html = `
+      <div class="channel-sub-tabs">
+        <div class="channel-sub-tab active" onclick="showChannelTab(this,'cfg')">⚙️ 配置</div>
+        <div class="channel-sub-tab" onclick="showChannelTab(this,'keys')">🔑 API Keys</div>
+        <div class="channel-sub-tab" onclick="showChannelTab(this,'test')">🧪 测试</div>
+      </div>
+
+      <!-- Config Sub-Panel -->
+      <div class="sub-panel" id="sub-cfg">
+
+        <!-- 基础配置 -->
+        <div class="card">
+          <h3>🔧 基础配置 - ${ch.display_name || ch.name}</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>显示名称</label>
+              <input type="text" id="cfgDisplayName" value="${ch.display_name || ''}" />
+            </div>
+            <div class="form-group">
+              <label>状态</label>
+              <select id="cfgEnabled">
+                <option value="true" ${ch.enabled ? 'selected' : ''}>启用</option>
+                <option value="false" ${!ch.enabled ? 'selected' : ''}>禁用</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>请求方法</label>
+              <select id="cfgMethod">
+                <option value="GET" ${ch.method === 'GET' ? 'selected' : ''}>GET</option>
+                <option value="POST" ${ch.method === 'POST' ? 'selected' : ''}>POST</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group" style="flex:1">
+              <label>URL</label>
+              <input type="text" id="cfgUrl" value="${ch.url || ''}" style="width:100%" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>超时 (秒)</label>
+              <input type="number" id="cfgTimeout" value="${ch.timeout}" min="1" max="120" />
+            </div>
+            <div class="form-group">
+              <label>优先级</label>
+              <input type="number" id="cfgPriority" value="${ch.priority}" min="1" max="999" />
+            </div>
+            <div class="form-group">
+              <label>最大重试次数</label>
+              <input type="number" id="cfgMaxRetries" value="${ch.max_retries ?? 2}" min="0" max="10" />
+            </div>
+          </div>
+          <div class="form-row">
+            <button class="btn btn-sm" onclick="saveChannelBasic('${name}')">💾 保存基础配置</button>
+          </div>
+        </div>
+
+        <!-- 认证配置 -->
+        <div class="card">
+          <h3>🔐 认证配置</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>认证类型</label>
+              <select id="cfgAuthType">
+                <option value="header" ${ch.auth?.type === 'header' ? 'selected' : ''}>Header</option>
+                <option value="query_param" ${ch.auth?.type === 'query_param' ? 'selected' : ''}>Query Param</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Header 名称</label>
+              <input type="text" id="cfgAuthHeaderName" value="${ch.auth?.header_name || ''}" placeholder="如: x-api-key" />
+            </div>
+            <div class="form-group">
+              <label>Header 前缀</label>
+              <input type="text" id="cfgAuthHeaderPrefix" value="${ch.auth?.header_prefix || ''}" placeholder="如: Bearer " />
+            </div>
+          </div>
+          <div class="form-row">
+            <button class="btn btn-sm" onclick="saveChannelAuth('${name}')">💾 保存认证配置</button>
+          </div>
+        </div>
+
+        <!-- 请求配置 -->
+        <div class="card">
+          <h3>📤 请求配置</h3>
+          <div class="form-group" style="margin-bottom:12px">
+            <label>请求体模板 (JSON)</label>
+            <textarea id="cfgRequest" rows="6" style="width:100%;font-family:monospace;font-size:12px;min-height:120px">${JSON.stringify(ch.request || {}, null, 2)}</textarea>
+          </div>
+          <div class="form-row">
+            <button class="btn btn-sm" onclick="saveChannelRequest('${name}')">💾 保存请求配置</button>
+          </div>
+        </div>
+
+        <!-- 响应配置 -->
+        <div class="card">
+          <h3>📥 响应配置</h3>
+          <div class="form-row">
+            <div class="form-group" style="flex:1">
+              <label>结果路径 (results_path)</label>
+              <input type="text" id="cfgResponseResultsPath" value="${ch.response?.results_path || ''}" placeholder="如: results、data.hits" style="width:100%" />
+            </div>
+          </div>
+          <div style="margin:12px 0 8px;font-size:13px;font-weight:600;color:var(--text2)">字段映射 — 将渠道 API 字段映射到标准字段</div>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:center">
+            <label style="font-size:12px;color:var(--text3)"><span style="color:var(--green)">*</span> content (必填)</label>
+            <input type="text" id="cfgMapContent" value="${ch.response?.mapping?.content || ''}" placeholder="渠道 API 中的内容字段路径，如: highlights、snippet、content" style="width:100%;font-size:12px" />
+            <label style="font-size:12px;color:var(--text3)">title</label>
+            <input type="text" id="cfgMapTitle" value="${ch.response?.mapping?.title || ''}" placeholder="标题字段路径，如: title" style="width:100%;font-size:12px" />
+            <label style="font-size:12px;color:var(--text3)">url</label>
+            <input type="text" id="cfgMapUrl" value="${ch.response?.mapping?.url || ''}" placeholder="链接字段路径，如: url、link" style="width:100%;font-size:12px" />
+            <label style="font-size:12px;color:var(--text3)">image</label>
+            <input type="text" id="cfgMapImage" value="${ch.response?.mapping?.image || ''}" placeholder="图片字段路径，如: image、thumbnail" style="width:100%;font-size:12px" />
+            <label style="font-size:12px;color:var(--text3)">datetime</label>
+            <input type="text" id="cfgMapDatetime" value="${ch.response?.mapping?.datetime || ''}" placeholder="时间字段路径，如: publishedDate、date" style="width:100%;font-size:12px" />
+          </div>
+          <div class="form-row" style="margin-top:12px">
+            <button class="btn btn-sm" onclick="saveChannelResponse('${name}')">💾 保存响应配置</button>
+          </div>
+        </div>
+
+        <!-- 频率限制 -->
+        <div class="card">
+          <h3>⏱️ 频率限制</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>每分钟上限</label>
+              <input type="number" id="cfgRatePerMinute" value="${ch.rate_limits?.per_minute ?? 10}" min="0" />
+            </div>
+            <div class="form-group">
+              <label>每小时上限</label>
+              <input type="number" id="cfgRatePerHour" value="${ch.rate_limits?.per_hour ?? 100}" min="0" />
+            </div>
+            <div class="form-group">
+              <label>每日上限</label>
+              <input type="number" id="cfgRatePerDay" value="${ch.rate_limits?.per_day ?? 500}" min="0" />
+            </div>
+            <div class="form-group">
+              <label>每月上限</label>
+              <input type="number" id="cfgRatePerMonth" value="${ch.rate_limits?.per_month ?? 10000}" min="0" />
+            </div>
+          </div>
+          <div class="form-row">
+            <button class="btn btn-sm" onclick="saveChannelRateLimits('${name}')">💾 保存频率限制</button>
+          </div>
+        </div>
+
+        <!-- 调用配额 -->
+        <div class="card">
+          <h3>📊 调用配额</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>每日配额</label>
+              <input type="number" id="cfgQuotaPerDay" value="${ch.quota?.per_day ?? 500}" min="0" />
+            </div>
+            <div class="form-group">
+              <label>每月配额</label>
+              <input type="number" id="cfgQuotaPerMonth" value="${ch.quota?.per_month ?? 10000}" min="0" />
+            </div>
+          </div>
+          <div class="form-row">
+            <button class="btn btn-sm" onclick="saveChannelQuota('${name}')">💾 保存配额</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>📝 完整配置</h3>
+          <pre style="font-size:12px;color:var(--text2);overflow-x:auto;white-space:pre-wrap">${JSON.stringify(ch, null, 2)}</pre>
+        </div>
+      </div>
+
+      <!-- Test Sub-Panel -->
+      <div class="sub-panel" id="sub-test" style="display:none">
+        <div class="card">
+          <h3>🧪 渠道测试 - ${ch.display_name || ch.name}</h3>
+          <p style="font-size:12px;color:var(--text3);margin-bottom:12px">
+            直接向此渠道发送测试请求，验证配置是否正确
+          </p>
+          <div class="form-row">
+            <div class="form-group" style="flex:1">
+              <label>测试查询词</label>
+              <input type="text" id="testQuery" value="artificial intelligence" placeholder="输入测试查询..." style="width:100%" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>使用 Key (可选，留空用第一个)</label>
+              <select id="testKeyIndex" style="width:200px">
+                <option value="">自动选择</option>
+                ${keysList.map((k, i) => '<option value="' + i + '">' + k.key_masked + '</option>').join('')}
+              </select>
+            </div>
+            <button class="btn btn-sm" onclick="testChannel('${name}')">🚀 发送测试</button>
+          </div>
+          <div id="testResult" style="margin-top:12px"></div>
+        </div>
+      </div>
+
+      <!-- Keys Sub-Panel -->
+      <div class="sub-panel" id="sub-keys" style="display:none">
+        <div class="card">
+          <h3>🔑 ${name} - API Keys
+            <button class="btn btn-sm" style="float:right" onclick="addKey('${name}')">➕ 添加 Key</button>
+          </h3>
+          <p style="font-size:12px;color:var(--text3);margin-bottom:12px">
+            这些 Key 用于认证搜索渠道（Exa/Tavily/TinyFish），非用户 API Key
+          </p>`;
+
+    if (keysList.length) {
+      html += `<div class="table-wrap"><table>
+        <thead><tr><th>Key</th><th>状态</th><th>标签</th><th>操作</th></tr></thead>
+        <tbody>`;
+      keysList.forEach(k => {
+        html += `<tr>
+          <td><code style="font-size:12px">${k.key_masked}</code></td>
+          <td><span class="tag ${k.enabled ? 'enabled' : 'disabled'}">${k.enabled ? '启用' : '禁用'}</span></td>
+          <td>${(k.labels||[]).map(l => '<span class="tag">' + l + '</span>').join(' ')}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="deleteKeyByIndex('${name}',${k.index})">🗑️ 删除</button></td>
+        </tr>`;
+      });
+      html += '</tbody></table></div>';
+    } else {
+      html += '<div style="text-align:center;padding:20px;color:var(--text3)">暂无 Key</div>';
+    }
+
+    html += `
+          <div class="form-row" style="margin-top:12px">
+            <div class="form-group">
+              <label>新 API Key</label>
+              <input type="text" id="newChannelKey" placeholder="输入渠道 API Key" style="width:300px" />
+            </div>
+            <div class="form-group">
+              <label>标签 (可选)</label>
+              <input type="text" id="newChannelKeyLabels" placeholder="production, test" style="width:150px" />
+            </div>
+            <button class="btn btn-success btn-sm" onclick="addChannelKey('${name}')">添加</button>
+          </div>
+        </div>
+      </div>`;
+
+    area.innerHTML = html;
+  } catch (e) {
+    area.innerHTML = '<div class="card"><div class="empty-state"><div class="icon">❌</div><div>加载失败: ' + (e.message||'') + '</div></div></div>';
+  }
+}
+
+function showChannelTab(btn, tab) {
+  btn.parentElement.querySelectorAll('.channel-sub-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.sub-panel').forEach(p => p.style.display = 'none');
+  const panel = $('sub-' + tab);
+  if (panel) panel.style.display = '';
+}
+
+// ============================================================
+// Channel Test
+// ============================================================
+function toggleTestContent(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const isCollapsed = el.style.cssText.includes('webkit-line-clamp');
+  if (isCollapsed) {
+    el.style.cssText = 'font-size:12px;color:var(--text2);margin-top:4px;cursor:pointer;white-space:pre-wrap;word-break:break-all';
+    el.nextElementSibling && (el.nextElementSibling.textContent = '▲ 收起');
+  } else {
+    el.style.cssText = 'font-size:12px;color:var(--text2);margin-top:4px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer';
+    el.nextElementSibling && (el.nextElementSibling.textContent = '▼ 展开全文');
+  }
+}
+
+async function testChannel(name) {
+  const query = $('testQuery').value.trim();
+  if (!query) { toast('请输入测试查询词', 'error'); return; }
+
+  const keyIndexVal = $('testKeyIndex').value;
+  const body = { query };
+  if (keyIndexVal !== '') body.key_index = parseInt(keyIndexVal);
+
+  const resultDiv = $('testResult');
+  resultDiv.innerHTML = '<div style="padding:12px;color:var(--text3)"><div class="loading"></div> 测试中，请稍候...</div>';
+
+  try {
+    const res = await fetch('/api/channels/' + encodeURIComponent(name) + '/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+
+    if (data.ok) {
+      let resultsHtml = '';
+      if (data.results && data.results.length > 0) {
+        resultsHtml = '<div style="margin-top:8px">' +
+          data.results.map((r, i) => {
+            const content = r.content || '';
+            const contentId = 'rc_' + i + '_' + Date.now();
+            const needExpand = content.length > 120;
+            return `<div style="padding:8px;margin:4px 0;background:var(--bg2);border-radius:6px;border-left:3px solid var(--green)">` +
+            `<div style="font-weight:500">${i+1}. ${r.title || '(无标题)'}</div>` +
+            `<div style="font-size:12px;color:var(--text3);margin-top:2px">${r.url || ''}</div>` +
+            `<div style="font-size:12px;color:var(--text2);margin-top:4px;${needExpand ? 'display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer' : ''}" id="${contentId}">${content}</div>` +
+            (needExpand ? `<div style="font-size:11px;color:var(--text3);margin-top:2px;cursor:pointer" onclick="toggleTestContent('${contentId}')">▼ 展开全文</div>` : '') +
+            `</div>`;
+          }).join('') + '</div>';
+      } else {
+        resultsHtml = '<div style="color:var(--text3);margin-top:8px">⚠️ 请求成功但未解析到结果</div>';
+      }
+
+      resultDiv.innerHTML =
+        `<div style="padding:12px;background:rgba(34,197,94,0.1);border-radius:8px;border:1px solid var(--green)">` +
+          `<div style="font-weight:600;color:var(--green)">✅ 测试成功</div>` +
+          `<div style="font-size:13px;color:var(--text2);margin-top:4px">` +
+            `状态码: <b>${data.status_code}</b> · 延迟: <b>${data.latency_ms}ms</b> · 结果数: <b>${data.results_count}</b>` +
+          `</div>` +
+          resultsHtml +
+          `<details style="margin-top:8px"><summary style="font-size:12px;color:var(--text3);cursor:pointer">📋 查看请求详情</summary>` +
+            `<pre style="font-size:11px;color:var(--text2);margin-top:4px;overflow-x:auto;white-space:pre-wrap">${JSON.stringify(data.request, null, 2)}</pre>` +
+          `</details>` +
+          `<details style="margin-top:4px"><summary style="font-size:12px;color:var(--text3);cursor:pointer">📦 查看原始响应</summary>` +
+            `<pre style="font-size:11px;color:var(--text2);margin-top:4px;max-height:300px;overflow:auto;white-space:pre-wrap">${JSON.stringify(data.raw_response, null, 2)}</pre>` +
+          `</details>` +
+        `</div>`;
+    } else {
+      resultDiv.innerHTML =
+        `<div style="padding:12px;background:rgba(239,68,68,0.1);border-radius:8px;border:1px solid var(--red)">` +
+          `<div style="font-weight:600;color:var(--red)">❌ 测试失败</div>` +
+          `<div style="font-size:13px;color:var(--text2);margin-top:4px">${data.error || data.detail || '未知错误'}</div>` +
+          (data.status_code ? `<div style="font-size:12px;color:var(--text3);margin-top:2px">HTTP ${data.status_code}</div>` : '') +
+        `</div>`;
+    }
+  } catch (e) {
+    resultDiv.innerHTML =
+      `<div style="padding:12px;background:rgba(239,68,68,0.1);border-radius:8px;border:1px solid var(--red)">` +
+        `<div style="font-weight:600;color:var(--red)">❌ 请求失败</div>` +
+        `<div style="font-size:13px;color:var(--text2);margin-top:4px">${e.message}</div>` +
+      `</div>`;
+  }
+}
+
+// ============================================================
+// Save Channel Functions
+// ============================================================
+async function saveChannelBasic(name) {
+  const body = {
+    display_name: $('cfgDisplayName').value.trim(),
+    enabled: $('cfgEnabled').value === 'true',
+    method: $('cfgMethod').value,
+    url: $('cfgUrl').value.trim(),
+    timeout: parseInt($('cfgTimeout').value),
+    priority: parseInt($('cfgPriority').value),
+    max_retries: parseInt($('cfgMaxRetries').value),
+  };
+  try {
+    await api('/api/channels/' + name, { method: 'PUT', body: JSON.stringify(body) });
+    toast('基础配置已保存');
+    loadChannels();
+    selectChannel(name);
+  } catch (e) {}
+}
+
+async function saveChannelAuth(name) {
+  const body = {
+    auth: {
+      type: $('cfgAuthType').value,
+      header_name: $('cfgAuthHeaderName').value.trim(),
+      header_prefix: $('cfgAuthHeaderPrefix').value.trim(),
+    }
+  };
+  try {
+    await api('/api/channels/' + name, { method: 'PUT', body: JSON.stringify(body) });
+    toast('认证配置已保存');
+    selectChannel(name);
+  } catch (e) {}
+}
+
+async function saveChannelRequest(name) {
+  let request;
+  try {
+    request = JSON.parse($('cfgRequest').value);
+  } catch (e) {
+    toast('请求体 JSON 格式错误', 'error');
+    return;
+  }
+  const body = { request };
+  try {
+    await api('/api/channels/' + name, { method: 'PUT', body: JSON.stringify(body) });
+    toast('请求配置已保存');
+    selectChannel(name);
+  } catch (e) {}
+}
+
+async function saveChannelResponse(name) {
+  const content = $('cfgMapContent').value.trim();
+  if (!content) { toast('content 映射为必填项', 'error'); return; }
+  const mapping = { content };
+  // 只添加非空的可选字段
+  for (const [field, el] of [
+    ['title', 'cfgMapTitle'],
+    ['url', 'cfgMapUrl'],
+    ['image', 'cfgMapImage'],
+    ['datetime', 'cfgMapDatetime'],
+  ]) {
+    const val = $(el).value.trim();
+    if (val) mapping[field] = val;
+  }
+  const body = {
+    response: {
+      results_path: $('cfgResponseResultsPath').value.trim(),
+      mapping,
+    }
+  };
+  try {
+    await api('/api/channels/' + name, { method: 'PUT', body: JSON.stringify(body) });
+    toast('响应配置已保存');
+    selectChannel(name);
+  } catch (e) {}
+}
+
+async function saveChannelRateLimits(name) {
+  const body = {
+    rate_limits: {
+      per_minute: parseInt($('cfgRatePerMinute').value) || 0,
+      per_hour: parseInt($('cfgRatePerHour').value) || 0,
+      per_day: parseInt($('cfgRatePerDay').value) || 0,
+      per_month: parseInt($('cfgRatePerMonth').value) || 0,
+    }
+  };
+  try {
+    await api('/api/channels/' + name, { method: 'PUT', body: JSON.stringify(body) });
+    toast('频率限制已保存');
+    selectChannel(name);
+  } catch (e) {}
+}
+
+async function saveChannelQuota(name) {
+  const body = {
+    quota: {
+      per_day: parseInt($('cfgQuotaPerDay').value) || 0,
+      per_month: parseInt($('cfgQuotaPerMonth').value) || 0,
+    }
+  };
+  try {
+    await api('/api/channels/' + name, { method: 'PUT', body: JSON.stringify(body) });
+    toast('调用配额已保存');
+    selectChannel(name);
+  } catch (e) {}
+}
+
+// ============================================================
+// Channel Keys
+// ============================================================
+async function addChannelKey(name) {
+  const key = $('newChannelKey').value.trim();
+  if (!key) { toast('请输入 Key', 'error'); return; }
+  const labels = $('newChannelKeyLabels').value.split(',').map(s => s.trim()).filter(Boolean);
+  try {
+    await api('/api/channels/' + name + '/keys', {
+      method: 'POST',
+      body: JSON.stringify({ key, labels }),
+    });
+    toast('Key 已添加');
+    selectChannel(name);
+  } catch (e) {}
+}
+
+async function addKey(name) {
+  addChannelKey(name);
+}
+
+async function deleteKeyByIndex(name, index) {
+  if (!confirm('确定删除此 Key？')) return;
+  try {
+    await api('/api/channels/' + name + '/keys', {
+      method: 'DELETE',
+      body: JSON.stringify({ index }),
+    });
+    toast('Key 已删除');
+    selectChannel(name);
+  } catch (e) {}
+}
+
+// ============================================================
+// Search
+// ============================================================
+
+// ============================================================
+// Users Management
+// ============================================================
+async function loadUsers() {
+  $('usersContent').innerHTML = '<div class="empty-state"><div class="loading"></div></div>';
+  try {
+    const users = await api('/api/admin/users');
+    let html = `<div class="card">
+      <h3>👥 用户列表</h3>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>用户名</th><th>角色</th><th>余额(元)</th><th>日配额</th><th>月配额</th><th>创建时间</th><th>操作</th></tr></thead>
+        <tbody>`;
+    if (users.users && users.users.length) {
+      users.users.forEach(u => {
+        html += `<tr>
+          <td>${u.id}</td>
+          <td><strong>${u.username}</strong></td>
+          <td><span class="tag ${u.role === 'admin' ? 'enabled' : ''}">${u.role}</span></td>
+          <td>${u.balance.toFixed(2)}</td>
+          <td>${u.quota_per_day}</td>
+          <td>${u.quota_per_month}</td>
+          <td>${u.created_at}</td>
+          <td>
+            <button class="btn btn-sm" onclick="showUserKeys(${u.id}, '${u.username}')">🔑 Keys</button>
+            <button class="btn btn-sm" onclick="editUser(${u.id}, '${u.username}')">✏️ 编辑</button>
+            ${u.role !== 'admin' ? '<button class="btn btn-danger btn-sm" onclick="deleteUser(' + u.id + ', \'' + u.username + '\')">🗑️ 删除</button>' : ''}
+          </td>
+        </tr>`;
+      });
+    } else {
+      html += '<tr><td colspan="8" style="text-align:center;color:var(--text3)">暂无用户</td></tr>';
+    }
+    html += `</tbody></table></div></div>
+      <div class="card">
+        <h3>➕ 添加新用户</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>用户名</label>
+            <input type="text" id="newUsername" placeholder="用户名" style="width:200px" />
+          </div>
+          <div class="form-group">
+            <label>密码</label>
+            <input type="password" id="newPassword" placeholder="密码(至少6位)" style="width:200px" />
+          </div>
+          <div class="form-group">
+            <label>角色</label>
+            <select id="newRole" style="width:150px">
+              <option value="normal">普通用户</option>
+              <option value="admin">管理员</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>初始余额</label>
+            <input type="number" id="newBalance" value="0" step="0.01" style="width:150px" />
+          </div>
+          <button class="btn btn-success btn-sm" onclick="addUser()">➕ 添加</button>
+        </div>
+      </div>
+      <div id="userKeysPanel"></div>`;
+    $('usersContent').innerHTML = html;
+    if (_currentKeyId) {
+      const u = (users.users || []).find(u => u.id === _currentKeyId);
+      if (u) showUserKeys(u.id, u.username);
+    }
+  } catch (e) {
+    $('usersContent').innerHTML = '<div class="empty-state"><div class="icon">❌</div><div>加载失败</div></div>';
+  }
+}
+
+async function addUser() {
+  const username = $('newUsername').value.trim();
+  const password = $('newPassword').value.trim();
+  const role = $('newRole').value;
+  const balance = parseFloat($('newBalance').value) || 0;
+  if (!username || !password) { toast('用户名和密码不能为空', 'error'); return; }
+  try {
+    await api('/api/admin/users', {
+      method: 'POST', body: JSON.stringify({ username, password, role, balance })
+    });
+    toast('用户已添加');
+    $('newUsername').value = '';
+    $('newPassword').value = '';
+    $('newRole').value = 'normal';
+    $('newBalance').value = '0';
+    loadUsers();
+  } catch (e) {}
+}
+
+async function deleteUser(userId, username) {
+  if (!confirm(`确定删除用户 ${username}？`)) return;
+  try {
+    await api(`/api/admin/users/${userId}`, { method: 'DELETE' });
+    toast('用户已删除');
+    if (_currentKeyId === userId) _currentKeyId = null;
+    loadUsers();
+  } catch (e) {}
+}
+
+async function editUser(userId, username) {
+  try {
+    const data = await api('/api/admin/users');
+    const u = (data.users || []).find(x => x.id === userId);
+    if (!u) { toast('用户不存在', 'error'); return; }
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:10000';
+    overlay.innerHTML = `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:500px;width:90%">
+        <h3 style="margin-bottom:16px">✏️ 编辑用户 - ${username}</h3>
+        <div class="form-group" style="margin-bottom:12px">
+          <label>新密码 (留空不修改)</label>
+          <input type="password" id="editPwd" placeholder="至少6位" style="width:100%" />
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+          <label>角色</label>
+          <select id="editRole" style="width:100%">
+            <option value="normal" ${u.role === 'normal' ? 'selected' : ''}>普通用户</option>
+            <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>管理员</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+          <label>余额 (元)</label>
+          <input type="number" id="editBalance" value="${u.balance}" step="0.01" style="width:100%" />
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+          <label>每日配额</label>
+          <input type="number" id="editQuotaDay" value="${u.quota_per_day}" min="0" style="width:100%" />
+        </div>
+        <div class="form-group" style="margin-bottom:16px">
+          <label>每月配额</label>
+          <input type="number" id="editQuotaMonth" value="${u.quota_per_month}" min="0" style="width:100%" />
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn btn-ghost btn-sm" onclick="this.closest('div[style*=fixed]').remove()">取消</button>
+          <button class="btn btn-sm" onclick="submitEditUser(${userId}, '${username}')">保存</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  } catch (e) {}
+}
+
+async function submitEditUser(userId, username) {
+  const body = {};
+  const pwd = $('editPwd').value.trim();
+  if (pwd) {
+    if (pwd.length < 6) { toast('密码至少6位', 'error'); return; }
+    body.password = pwd;
+  }
+  body.balance = parseFloat($('editBalance').value) || 0;
+  body.quota_per_day = parseInt($('editQuotaDay').value) || 0;
+  body.quota_per_month = parseInt($('editQuotaMonth').value) || 0;
+  body.role = $('editRole').value;
+  try {
+    await api(`/api/admin/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(body)
+    });
+    toast('用户已更新');
+    document.querySelector('div[style*=fixed]')?.remove();
+    loadUsers();
+  } catch (e) {}
+}
+
+// ============================================================
+// User API Keys Management
+// ============================================================
+async function showUserKeys(userId, username) {
+  _currentKeyId = userId;
+  const panel = $('userKeysPanel');
+  panel.innerHTML = '<div class="card"><div class="empty-state"><div class="loading"></div></div></div>';
+
+  try {
+    const data = await api(`/api/admin/users/${userId}/keys`);
+    const keys = data.keys || [];
+    let html = `<div class="card">
+      <h3>🔑 ${username} 的 API Keys
+        <button class="btn btn-sm" style="float:right" onclick="createUserKey(${userId}, '${username}')">➕ 创建新 Key</button>
+      </h3>
+      <p style="font-size:12px;color:var(--text3);margin-bottom:12px">
+        API Key 用于调用 <code>/api/search</code> 接口，通过 <code>X-API-Key</code> Header 传递
+      </p>`;
+
+    if (keys.length) {
+      html += `<div class="table-wrap"><table>
+        <thead><tr><th>ID</th><th>Key 前缀</th><th>状态</th><th>日配额</th><th>月配额</th><th>单次费用</th><th>创建时间</th><th>操作</th></tr></thead>
+        <tbody>`;
+      keys.forEach(k => {
+        html += `<tr>
+          <td>${k.id}</td>
+          <td><code style="font-size:12px">${k.key_prefix}</code></td>
+          <td><span class="tag ${k.enabled ? 'enabled' : 'disabled'}">${k.enabled ? '启用' : '已禁用'}</span></td>
+          <td>${k.quota_per_day}</td>
+          <td>${k.quota_per_month}</td>
+          <td>${k.price_per_call}</td>
+          <td>${k.created_at}</td>
+          <td>
+            <button class="btn btn-danger btn-sm" onclick="deleteUserKey(${k.id}, ${userId}, '${username}')">🗑️ 删除</button>
+          </td>
+        </tr>`;
+      });
+      html += '</tbody></table></div>';
+    } else {
+      html += '<div style="text-align:center;padding:20px;color:var(--text3)">暂无 API Key</div>';
+    }
+    html += '</div>';
+    panel.innerHTML = html;
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {
+    panel.innerHTML = '<div class="card"><div class="empty-state"><div class="icon">❌</div><div>加载失败</div></div></div>';
+  }
+}
+
+async function createUserKey(userId, username) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:10000';
+  overlay.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:420px;width:90%">
+      <h3 style="margin-bottom:16px">➕ 创建 API Key - ${username}</h3>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>每日调用配额</label>
+        <input type="number" id="newKeyQPD" value="100" min="0" style="width:100%" />
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>每月调用配额</label>
+        <input type="number" id="newKeyQPM" value="3000" min="0" style="width:100%" />
+      </div>
+      <div class="form-group" style="margin-bottom:16px">
+        <label>每次调用费用 (元)</label>
+        <input type="number" id="newKeyPrice" value="0.01" min="0" step="0.001" style="width:100%" />
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-ghost btn-sm" onclick="this.closest('div[style*=fixed]').remove()">取消</button>
+        <button class="btn btn-success btn-sm" onclick="submitCreateUserKey(${userId}, '${username}')">创建</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+async function submitCreateUserKey(userId, username) {
+  try {
+    const result = await api(`/api/admin/users/${userId}/keys`, {
+      method: 'POST',
+      body: JSON.stringify({
+        quota_per_day: parseInt($('newKeyQPD').value) || 100,
+        quota_per_month: parseInt($('newKeyQPM').value) || 3000,
+        price_per_call: parseFloat($('newKeyPrice').value) || 0.01,
+      })
+    });
+    document.querySelector('div[style*=fixed]')?.remove();
+    if (result.key) showCreatedKey(result.key, username);
+    showUserKeys(userId, username);
+  } catch (e) {}
+}
+
+function showCreatedKey(key, username) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:10000';
+  overlay.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:600px;width:90%">
+      <h3 style="color:var(--green);margin-bottom:12px">✅ API Key 已创建</h3>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px">
+        用户 <strong>${username}</strong> 的新 API Key（<strong style="color:var(--red)">仅显示一次，请妥善保存</strong>）:
+      </p>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 16px;word-break:break-all">
+        <code id="createdKeyValue" style="font-size:13px;color:var(--green)">${key}</code>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-sm" onclick="copyCreatedKey()">📋 复制</button>
+        <button class="btn btn-ghost btn-sm" onclick="this.closest('div[style*=fixed]').remove()">关闭</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+function copyCreatedKey() {
+  const key = document.getElementById('createdKeyValue').textContent;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(key).then(() => toast('已复制到剪贴板')).catch(() => fallbackCopy(key));
+  } else {
+    fallbackCopy(key);
+  }
+}
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); toast('已复制到剪贴板'); }
+  catch(e) { toast('复制失败，请手动复制', 'error'); }
+  ta.remove();
+}
+
+async function deleteUserKey(keyId, userId, username) {
+  if (!confirm('确定删除此 API Key？删除后不可恢复。')) return;
+  try {
+    await api(`/api/admin/keys/${keyId}`, { method: 'DELETE' });
+    toast('API Key 已删除');
+    showUserKeys(userId, username);
+  } catch (e) {}
+}
+
+// ============================================================
+// Monitor
+// ============================================================
+async function loadChannelMonitor() {
+  $('channelMonitorContent').innerHTML = '<div class="empty-state"><div class="loading"></div></div>';
+  try {
+    const [stats, health] = await Promise.all([
+      api('/api/monitor/stats'),
+      api('/api/monitor/health'),
+    ]);
+
+    const chs = stats.channels || [];
+    const totalCalls = chs.reduce((s, c) => s + (c.calls_today || 0), 0);
+    const avgLatency = chs.length
+      ? (chs.reduce((s, c) => s + (c.avg_latency_ms || 0), 0) / chs.length).toFixed(1)
+      : 0;
+    const avgErrorRate = chs.length
+      ? (chs.reduce((s, c) => s + (c.error_rate || 0), 0) / chs.length * 100).toFixed(1)
+      : 0;
+
+    let html = `
+      <div class="card">
+        <h3>📊 系统概览</h3>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="value">${health.status === 'ok' ? '✅' : '❌'}</div><div class="label">系统状态</div></div>
+          <div class="stat-card"><div class="value">${health.enabled || 0}/${health.channels || 0}</div><div class="label">启用渠道</div></div>
+          <div class="stat-card"><div class="value">${totalCalls}</div><div class="label">今日总调用</div></div>
+          <div class="stat-card"><div class="value">${avgLatency}ms</div><div class="label">平均延迟</div></div>
+          <div class="stat-card"><div class="value">${avgErrorRate}%</div><div class="label">平均错误率</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>📈 各渠道统计</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>渠道</th><th>状态</th><th>今日调用/配额</th><th>月调用/配额</th><th>平均延迟</th><th>错误率</th><th>Key 数</th></tr></thead>
+            <tbody>`;
+    chs.forEach(ch => {
+      const q = ch.quota || {};
+      const dayUsed = q.per_day?.used ?? 0;
+      const dayLimit = q.per_day?.limit ?? 0;
+      const monthUsed = q.per_month?.used ?? 0;
+      const monthLimit = q.per_month?.limit ?? 0;
+      const dayText = dayLimit > 0 ? `${dayUsed} / ${dayLimit}` : `${dayUsed} / ∞`;
+      const monthText = monthLimit > 0 ? `${monthUsed} / ${monthLimit}` : `${monthUsed} / ∞`;
+      const dayColor = dayLimit > 0 && dayUsed >= dayLimit ? 'var(--red)' : dayLimit > 0 && dayUsed >= dayLimit * 0.8 ? 'var(--yellow)' : 'var(--text)';
+      const monthColor = monthLimit > 0 && monthUsed >= monthLimit ? 'var(--red)' : monthLimit > 0 && monthUsed >= monthLimit * 0.8 ? 'var(--yellow)' : 'var(--text)';
+      html += `<tr>
+        <td><strong>${ch.name}</strong></td>
+        <td><span class="tag ${ch.enabled ? (ch.healthy ? 'enabled' : 'disabled') : 'disabled'}">${ch.healthy ? (ch.enabled ? '正常' : '禁用') : '异常'}</span></td>
+        <td style="color:${dayColor}">${dayText}</td>
+        <td style="color:${monthColor}">${monthText}</td>
+        <td>${(ch.avg_latency_ms || 0).toFixed(1)}ms</td>
+        <td>${((ch.error_rate || 0) * 100).toFixed(1)}%</td>
+        <td>${(ch.keys || []).length}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div></div>`;
+
+    if (chs.length) {
+      const maxCalls = Math.max(...chs.map(c => c.calls_today || 0), 1);
+      html += `<div class="card"><h3>📊 今日调用分布</h3><div class="bar-chart">`;
+      chs.forEach(ch => {
+        const h = Math.max(((ch.calls_today || 0) / maxCalls) * 100, 4);
+        html += `<div style="text-align:center;flex:1"><div class="bar" style="height:${h}%" title="${ch.name}: ${ch.calls_today || 0}"></div><div class="bar-label">${ch.name}</div></div>`;
+      });
+      html += `</div></div>`;
+    }
+
+    $('channelMonitorContent').innerHTML = html;
+  } catch (e) {
+    $('channelMonitorContent').innerHTML = '<div class="empty-state"><div class="icon">❌</div><div>加载失败</div></div>';
+  }
+}
+
+// ============================================================
+// User Monitor
+// ============================================================
+async function loadUserMonitor() {
+  $('userMonitorContent').innerHTML = '<div class="empty-state"><div class="loading"></div></div>';
+  try {
+    const data = await api('/api/monitor/user-stats?days=30');
+    const users = data.users || [];
+
+    if (!users.length) {
+      $('userMonitorContent').innerHTML = '<div class="empty-state"><div class="icon">👥</div><div>暂无用户数据</div></div>';
+      return;
+    }
+
+    const totalCalls = users.reduce((s, u) => s + (u.calls_today || 0), 0);
+    const totalMonth = users.reduce((s, u) => s + (u.calls_month || 0), 0);
+    const totalCost = users.reduce((s, u) => s + (u.total_cost || 0), 0);
+
+    let html = `
+      <div class="card">
+        <h3>👥 用户调用概览</h3>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="value">${data.total_users}</div><div class="label">总用户数</div></div>
+          <div class="stat-card"><div class="value">${totalCalls}</div><div class="label">今日总调用</div></div>
+          <div class="stat-card"><div class="value">${totalMonth}</div><div class="label">本月总调用</div></div>
+          <div class="stat-card"><div class="value">¥${totalCost.toFixed(2)}</div><div class="label">总消费</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>📊 用户调用详情</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>用户</th><th>今日调用</th><th>本月调用</th><th>总调用</th><th>总消费</th><th>日配额</th><th>月配额</th><th>余额</th><th>错误数</th><th>趋势</th></tr></thead>
+            <tbody>`;
+
+    users.forEach(u => {
+      const dayPct = u.quota_per_day > 0 ? Math.round((u.calls_today / u.quota_per_day) * 100) : 0;
+      const monthPct = u.quota_per_month > 0 ? Math.round((u.calls_month / u.quota_per_month) * 100) : 0;
+      const barColor = dayPct > 80 ? 'var(--red)' : dayPct > 50 ? 'var(--yellow)' : 'var(--green)';
+
+      html += `<tr>
+        <td><strong>${u.username}</strong></td>
+        <td>${u.calls_today} <span style="font-size:11px;color:var(--text3)">(${dayPct}%)</span></td>
+        <td>${u.calls_month} <span style="font-size:11px;color:var(--text3)">(${monthPct}%)</span></td>
+        <td>${u.total_calls}</td>
+        <td>¥${u.total_cost.toFixed(2)}</td>
+        <td>${u.quota_per_day}</td>
+        <td>${u.quota_per_month}</td>
+        <td>¥${u.balance.toFixed(2)}</td>
+        <td>${u.total_errors}</td>
+        <td style="min-width:120px">
+          <div style="background:var(--bg4);border-radius:3px;height:8px;overflow:hidden">
+            <div style="background:${barColor};height:100%;width:${Math.min(dayPct, 100)}%;transition:width .3s"></div>
+          </div>
+          <span style="font-size:10px;color:var(--text3)">今日配额</span>
+        </td>
+      </tr>`;
+    });
+
+    html += '</tbody></table></div></div>';
+
+    // 每日趋势图
+    const allDates = {};
+    users.forEach(u => (u.daily || []).forEach(d => {
+      if (!allDates[d.date]) allDates[d.date] = 0;
+      allDates[d.date] += d.calls;
+    }));
+    const dates = Object.keys(allDates).sort().slice(-14);
+    if (dates.length) {
+      const maxCalls = Math.max(...dates.map(d => allDates[d]), 1);
+      html += '<div class="card"><h3>📈 近' + dates.length + '天调用趋势</h3><div class="bar-chart">';
+      dates.forEach(d => {
+        const h = Math.max((allDates[d] / maxCalls) * 100, 4);
+        html += '<div style="text-align:center;flex:1"><div class="bar" style="height:' + h + '%" title="' + d + ': ' + allDates[d] + '次"></div><div class="bar-label">' + d.slice(5) + '</div></div>';
+      });
+      html += '</div></div>';
+    }
+
+    $('userMonitorContent').innerHTML = html;
+  } catch (e) {
+    $('userMonitorContent').innerHTML = '<div class="empty-state"><div class="icon">❌</div><div>加载失败</div></div>';
+  }
+}
+
+// ============================================================
+// Config Reload / Refresh
+// ============================================================
+async function reloadConfig() {
+  try {
+    await api('/api/config/reload', { method: 'POST' });
+    toast('配置已重载');
+    loadChannels();
+  } catch (e) {}
+}
+
+function refreshAll() {
+  loadChannels();
+  if (activeNav === 'users') loadUsers();
+  if (activeNav === 'channel-monitor') loadChannelMonitor();
+  if (activeNav === 'user-monitor') loadUserMonitor();
+  if (activeNav === 'logs') loadLogs();
+}
+
+// ============================================================
+// Usage Logs
+// ============================================================
+let _logsPage = 1;
+const _logsPageSize = 20;
+
+async function loadLogs(page) {
+  if (page) _logsPage = page;
+  $('logsContent').innerHTML = '<div class="empty-state"><div class="loading"></div></div>';
+  try {
+    const data = await api(`/api/logs?page=${_logsPage}&page_size=${_logsPageSize}`);
+    let html = `<div class="card">
+      <h3>📋 调用日志
+        <a href="/api/logs/export?days=30" class="btn btn-sm btn-ghost" style="float:right;text-decoration:none">📥 导出CSV</a>
+      </h3>`;
+
+    // 统计摘要
+    html += `<div style="margin-bottom:12px;font-size:13px;color:var(--text2)">
+        共 <strong>${data.total}</strong> 条记录，第 ${data.page}/${data.total_pages} 页
+      </div>`;
+
+    if (data.logs && data.logs.length) {
+      html += `<div class="table-wrap"><table>
+        <thead><tr>
+          <th>ID</th><th>用户</th><th>查询</th><th>渠道</th>
+          <th>结果数</th><th>延迟(ms)</th><th>费用</th>
+          <th>状态</th><th>时间</th>
+        </tr></thead><tbody>`;
+      data.logs.forEach(l => {
+        html += `<tr>
+          <td>${l.id}</td>
+          <td><strong>${l.username || '-'}</strong></td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(l.query||'').replace(/"/g,'&quot;')}">${l.query || '-'}</td>
+          <td><span style="font-size:12px">${l.channels || '-'}</span></td>
+          <td>${l.results_count}</td>
+          <td>${l.latency_ms}</td>
+          <td>${l.cost.toFixed(4)}</td>
+          <td><span class="tag ${l.status === 'ok' ? 'enabled' : 'disabled'}">${l.status}</span></td>
+          <td style="font-size:12px;color:var(--text3)">${l.created_at}</td>
+        </tr>`;
+      });
+      html += '</tbody></table></div>';
+
+      // 分页控件
+      if (data.total_pages > 1) {
+        html += '<div style="display:flex;gap:8px;justify-content:center;margin-top:16px">';
+        if (data.page > 1) {
+          html += `<button class="btn btn-ghost btn-sm" onclick="loadLogs(${data.page - 1})">⬅ 上一页</button>`;
+        }
+        html += `<span style="line-height:32px;font-size:13px;color:var(--text2)">${data.page} / ${data.total_pages}</span>`;
+        if (data.page < data.total_pages) {
+          html += `<button class="btn btn-ghost btn-sm" onclick="loadLogs(${data.page + 1})">下一页 ➡</button>`;
+        }
+        html += '</div>';
+      }
+    } else {
+      html += '<div style="text-align:center;padding:40px;color:var(--text3)">暂无调用记录</div>';
+    }
+    html += '</div>';
+    $('logsContent').innerHTML = html;
+  } catch (e) {
+    $('logsContent').innerHTML = '<div class="empty-state"><div class="icon">❌</div><div>加载失败</div></div>';
+  }
+}
+
+// ============================================================
+// Role-Based Menu Visibility
+// ============================================================
+function applyRoleMenus() {
+  const isAdmin = _currentUser && _currentUser.role === 'admin';
+  // admin-only 菜单项
+  document.querySelectorAll('.nav-item[data-role="admin"]').forEach(el => {
+    el.style.display = isAdmin ? '' : 'none';
+  });
+  // normal 用户默认跳转到调用日志
+  if (!isAdmin) {
+    switchNav('logs');
+  }
+}
+// ============================================================
+// Logout
+// ============================================================
+async function doLogout() {
+  try { await api('/api/auth/logout', { method: 'POST' }); } catch (e) {}
+  localStorage.removeItem('admin_token');
+  window.location.href = '/login';
+}
+
+// ============================================================
+// Init
+// ============================================================
+(async function init() {
+  // 获取当前登录用户信息
+  try {
+    _currentUser = await api('/api/auth/me');
+    applyRoleMenus();
+  } catch (e) {
+    // 未登录或 token 过期，跳转登录页
+    window.location.href = '/login';
+    return;
+  }
+  // 加载默认页面
+  loadChannels();
+})();
+</script>
+</body>
+</html>
