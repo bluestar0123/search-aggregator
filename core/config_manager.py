@@ -15,6 +15,7 @@ from core.models import (
     QuotaConfig,
     RateLimitConfig,
 )
+from pydantic import BaseModel
 
 # 项目根目录 (core/ 的上级)
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -109,8 +110,24 @@ class ConfigManager:
         if ch is None:
             return None
         for key, value in updates.items():
-            if value is not None and hasattr(ch, key):
-                setattr(ch, key, value)
+            if value is None:
+                continue
+            if not hasattr(ch, key):
+                continue
+
+            attr = getattr(ch, key)
+            # 如果目标属性是 Pydantic BaseModel 且传进来的是 dict，
+            # 则更新模型内部字段，而不是直接替换整个对象
+            if isinstance(attr, BaseModel) and isinstance(value, dict):
+                # 只更新存在的字段，忽略多余的键
+                for sub_key, sub_val in value.items():
+                    if hasattr(attr, sub_key):
+                        setattr(attr, sub_key, sub_val)
+                continue
+
+            # 其他基本类型直接赋值
+            setattr(ch, key, value)
+
         # 持久化到 YAML
         self._save_channel_yaml(name)
         return ch
@@ -246,6 +263,7 @@ class ConfigManager:
             "channels": len(self.channels),
             "enabled": sum(1 for c in self.channels.values() if c.enabled),
         }
+
 
 # ---- 全局单例 ----
 _manager: ConfigManager | None = None
