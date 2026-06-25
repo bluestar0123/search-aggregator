@@ -189,9 +189,11 @@ async def verify_api_key(api_key: str) -> dict[str, Any] | None:
 
 
 async def revoke_api_key(key_id: int) -> bool:
-    """删除指定 API Key，返回是否成功"""
+    """删除指定 API Key（级联删除关联的 usage_logs），返回是否成功"""
     db = await get_db()
     try:
+        # 先删除关联的使用日志（外键约束）
+        await db.execute("DELETE FROM usage_logs WHERE api_key_id = ?", (key_id,))
         cursor = await db.execute(
             "DELETE FROM api_keys WHERE id = ?", (key_id,)
         )

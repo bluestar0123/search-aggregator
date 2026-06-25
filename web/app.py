@@ -277,7 +277,7 @@ async def admin_update_user(user_id: int, request: Request, admin: dict = Depend
 
 @app.delete("/api/admin/users/{user_id}")
 async def admin_delete_user(user_id: int, admin: dict = Depends(require_admin)):
-    """删除用户"""
+    """删除用户（级联清理 Keys 和日志）"""
     db = await get_db()
     try:
         # 不允许删除管理员
@@ -288,6 +288,28 @@ async def admin_delete_user(user_id: int, admin: dict = Depends(require_admin)):
         if row["role"] == "admin":
             raise HTTPException(400, "不能删除管理员账户")
 
+        # 外键级联清理（从叶子到根）：
+        # 1. 先查该用户的所有 Key
+        key_rows = await db.execute(
+            "SELECT id FROM api_keys WHERE user_id = ?", (user_id,)
+        )
+        key_ids = [r["id"] async for r in key_rows]
+
+        # 2. 删除这些 Key 关联的使用日志
+        if key_ids:
+            placeholders = ",".join("?" * len(key_ids))
+            await db.execute(
+                f"DELETE FROM usage_logs WHERE api_key_id IN ({placeholders})",
+                key_ids,
+            )
+
+        # 3. 删除该用户的所有 Keys
+        await db.execute("DELETE FROM api_keys WHERE user_id = ?", (user_id,))
+
+        # 4. 删除该用户直接关联的日志（没有 key_id 的情况）
+        await db.execute("DELETE FROM usage_logs WHERE user_id = ?", (user_id,))
+
+        # 5. 最后删除用户
         await db.execute("DELETE FROM api_users WHERE id = ?", (user_id,))
         await db.commit()
         return {"ok": True}
