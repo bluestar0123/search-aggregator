@@ -59,6 +59,15 @@ app = FastAPI(
 _templates_dir = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(_templates_dir))
 
+# 空白 favicon.ico（避免浏览器重复请求 404）
+_FAVICON = b""
+
+
+@app.get("/favicon.ico")
+async def favicon():
+    """返回空 favicon，消除 404 噪音"""
+    return Response(content=_FAVICON, media_type="image/x-icon")
+
 
 @app.on_event("startup")
 async def startup():
@@ -478,6 +487,9 @@ async def update_channel(name: str, req: ChannelUpdateRequest, admin: dict = Dep
     ch = cm.update_channel(name, updates)
     if ch is None:
         raise HTTPException(status_code=404, detail=f"渠道 {name} 不存在")
+    # 如果 enabled 状态改变，同步更新 key_manager
+    if "enabled" in updates:
+        key_manager.init_channel(name, cm.get_keys(name))
     return {"ok": True, "channel": ch.model_dump()}
 
 
@@ -582,7 +594,7 @@ async def test_channel(name: str, request: Request, admin: dict = Depends(requir
         logging.getLogger(__name__).exception("渠道测试失败: %s", name)
         return {
             "ok": False,
-            "error": "请求失败，请检查渠道配置",
+            "error": f"请求失败: {e}",
         }
 
 
@@ -896,4 +908,10 @@ async def reload_config(admin: dict = Depends(require_admin)):
     """热重载配置"""
     cm = _cm()
     cm.reload()
+    # 同步更新 key_manager（渠道 Key 变更后运行时必须重载）
+    channel_keys = {name: cm.get_keys(name) for name in cm.get_all_channels()}
+    key_manager.init_all(channel_keys)
+    # 同步更新 rate_limiter 配额计数器
+    from core.rate_limiter import rate_limiter
+    await rate_limiter.init_from_db()
     return {"ok": True, "message": "配置已重载"}
