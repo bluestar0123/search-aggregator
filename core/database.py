@@ -117,10 +117,12 @@ async def get_db() -> aiosqlite.Connection:
 
     每次调用都新建连接（非单例），保证异步安全。
     调用方应使用 try/finally 确保连接关闭。
+    设置 busy_timeout=5000 避免并发写入时 database is locked。
     """
     _DATA_DIR.mkdir(parents=True, exist_ok=True)
     db = await aiosqlite.connect(str(_DB_PATH))
     db.row_factory = aiosqlite.Row  # type: ignore[assignment]
     await db.execute("PRAGMA journal_mode=WAL")
+    await db.execute("PRAGMA busy_timeout=5000")
     await db.execute("PRAGMA foreign_keys=ON")
     return db

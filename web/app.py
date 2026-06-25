@@ -177,42 +177,48 @@ async def admin_create_user(request: Request, admin: dict = Depends(require_admi
         raise HTTPException(400, "角色只能是 admin 或 normal")
 
     db = await get_db()
-    # 检查用户名重复
-    cursor = await db.execute("SELECT id FROM api_users WHERE username = ?", (username,))
-    if await cursor.fetchone():
-        raise HTTPException(409, f"用户名 '{username}' 已存在")
+    try:
+        # 检查用户名重复
+        cursor = await db.execute("SELECT id FROM api_users WHERE username = ?", (username,))
+        if await cursor.fetchone():
+            raise HTTPException(409, f"用户名 '{username}' 已存在")
 
-    cursor = await db.execute(
-        "INSERT INTO api_users (username, password_hash, role, balance, quota_per_day, quota_per_month) VALUES (?, ?, ?, ?, ?, ?)",
-        (username, hash_password(password), role, balance, quota_per_day, quota_per_month),
-    )
-    await db.commit()
-    return {"ok": True, "user_id": cursor.lastrowid, "username": username}
+        cursor = await db.execute(
+            "INSERT INTO api_users (username, password_hash, role, balance, quota_per_day, quota_per_month) VALUES (?, ?, ?, ?, ?, ?)",
+            (username, hash_password(password), role, balance, quota_per_day, quota_per_month),
+        )
+        await db.commit()
+        return {"ok": True, "user_id": cursor.lastrowid, "username": username}
+    finally:
+        await db.close()
 
 
 @app.get("/api/admin/users")
 async def admin_list_users(admin: dict = Depends(require_admin)):
     """列出所有用户"""
     db = await get_db()
-    # 列出所有 API 用户
-    cursor = await db.execute(
-        "SELECT id, username, role, balance, quota_per_day, quota_per_month, created_at FROM api_users ORDER BY id"
-    )
-    rows = await cursor.fetchall()
-    return {
-        "users": [
-            {
-                "id": row["id"],
-                "username": row["username"],
-                "role": row["role"],
-                "balance": round(float(row["balance"]), 2),
-                "quota_per_day": row["quota_per_day"],
-                "quota_per_month": row["quota_per_month"],
-                "created_at": row["created_at"],
-            }
-            for row in rows
-        ]
-    }
+    try:
+        # 列出所有 API 用户
+        cursor = await db.execute(
+            "SELECT id, username, role, balance, quota_per_day, quota_per_month, created_at FROM api_users ORDER BY id"
+        )
+        rows = await cursor.fetchall()
+        return {
+            "users": [
+                {
+                    "id": row["id"],
+                    "username": row["username"],
+                    "role": row["role"],
+                    "balance": round(float(row["balance"]), 2),
+                    "quota_per_day": row["quota_per_day"],
+                    "quota_per_month": row["quota_per_month"],
+                    "created_at": row["created_at"],
+                }
+                for row in rows
+            ]
+        }
+    finally:
+        await db.close()
 
 
 @app.put("/api/admin/users/{user_id}")
@@ -220,69 +226,73 @@ async def admin_update_user(user_id: int, request: Request, admin: dict = Depend
     """更新用户信息（密码/余额/配额）"""
     body = await request.json()
     db = await get_db()
+    try:
+        # 检查用户存在
+        cursor = await db.execute("SELECT role FROM api_users WHERE id = ?", (user_id,))
+        row = await cursor.fetchone()
+        if not row:
+            raise HTTPException(404, "用户不存在")
 
-    # 检查用户存在
-    cursor = await db.execute("SELECT role FROM api_users WHERE id = ?", (user_id,))
-    row = await cursor.fetchone()
-    if not row:
-        raise HTTPException(404, "用户不存在")
+        updates = []
+        params = []
+        new_password_hash = None
 
-    updates = []
-    params = []
-    new_password_hash = None
+        if "password" in body:
+            password = body["password"].strip()
+            if len(password) < 6:
+                raise HTTPException(400, "密码至少6位")
+            updates.append("password_hash = ?")
+            new_password_hash = hash_password(password)
+            params.append(new_password_hash)
 
-    if "password" in body:
-        password = body["password"].strip()
-        if len(password) < 6:
-            raise HTTPException(400, "密码至少6位")
-        updates.append("password_hash = ?")
-        new_password_hash = hash_password(password)
-        params.append(new_password_hash)
+        if "balance" in body:
+            updates.append("balance = ?")
+            params.append(float(body["balance"]))
 
-    if "balance" in body:
-        updates.append("balance = ?")
-        params.append(float(body["balance"]))
+        if "quota_per_day" in body:
+            updates.append("quota_per_day = ?")
+            params.append(int(body["quota_per_day"]))
 
-    if "quota_per_day" in body:
-        updates.append("quota_per_day = ?")
-        params.append(int(body["quota_per_day"]))
+        if "quota_per_month" in body:
+            updates.append("quota_per_month = ?")
+            params.append(int(body["quota_per_month"]))
 
-    if "quota_per_month" in body:
-        updates.append("quota_per_month = ?")
-        params.append(int(body["quota_per_month"]))
+        if "role" in body:
+            new_role = body["role"].strip()
+            if new_role not in ("admin", "normal"):
+                raise HTTPException(400, "角色只能是 admin 或 normal")
+            updates.append("role = ?")
+            params.append(new_role)
 
-    if "role" in body:
-        new_role = body["role"].strip()
-        if new_role not in ("admin", "normal"):
-            raise HTTPException(400, "角色只能是 admin 或 normal")
-        updates.append("role = ?")
-        params.append(new_role)
+        if not updates:
+            raise HTTPException(400, "没有要更新的字段")
 
-    if not updates:
-        raise HTTPException(400, "没有要更新的字段")
-
-    params.append(user_id)
-    await db.execute(f"UPDATE api_users SET {', '.join(updates)} WHERE id = ?", params)
-
-    await db.commit()
-    return {"ok": True}
+        params.append(user_id)
+        await db.execute(f"UPDATE api_users SET {', '.join(updates)} WHERE id = ?", params)
+        await db.commit()
+        return {"ok": True}
+    finally:
+        await db.close()
 
 
 @app.delete("/api/admin/users/{user_id}")
 async def admin_delete_user(user_id: int, admin: dict = Depends(require_admin)):
     """删除用户"""
     db = await get_db()
-    # 不允许删除管理员
-    cursor = await db.execute("SELECT role FROM api_users WHERE id = ?", (user_id,))
-    row = await cursor.fetchone()
-    if not row:
-        raise HTTPException(404, "用户不存在")
-    if row["role"] == "admin":
-        raise HTTPException(400, "不能删除管理员账户")
+    try:
+        # 不允许删除管理员
+        cursor = await db.execute("SELECT role FROM api_users WHERE id = ?", (user_id,))
+        row = await cursor.fetchone()
+        if not row:
+            raise HTTPException(404, "用户不存在")
+        if row["role"] == "admin":
+            raise HTTPException(400, "不能删除管理员账户")
 
-    await db.execute("DELETE FROM api_users WHERE id = ?", (user_id,))
-    await db.commit()
-    return {"ok": True}
+        await db.execute("DELETE FROM api_users WHERE id = ?", (user_id,))
+        await db.commit()
+        return {"ok": True}
+    finally:
+        await db.close()
 
 
 @app.post("/api/admin/users/{user_id}/keys")
@@ -295,17 +305,20 @@ async def admin_create_key(user_id: int, request: Request, admin: dict = Depends
 
     # 检查用户存在
     db = await get_db()
-    cursor = await db.execute("SELECT id FROM api_users WHERE id = ?", (user_id,))
-    if not await cursor.fetchone():
-        raise HTTPException(404, "用户不存在")
+    try:
+        cursor = await db.execute("SELECT id FROM api_users WHERE id = ?", (user_id,))
+        if not await cursor.fetchone():
+            raise HTTPException(404, "用户不存在")
 
-    key_info = await create_api_key(
-        user_id,
-        quota_per_day=quota_per_day,
-        quota_per_month=quota_per_month,
-        price_per_call=price_per_call,
-    )
-    return {"ok": True, **key_info}
+        key_info = await create_api_key(
+            user_id,
+            quota_per_day=quota_per_day,
+            quota_per_month=quota_per_month,
+            price_per_call=price_per_call,
+        )
+        return {"ok": True, **key_info}
+    finally:
+        await db.close()
 
 
 @app.get("/api/admin/users/{user_id}/keys")
